@@ -1,6 +1,19 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
+
+// Helper function to format the date and time
+function formatDate(date) {
+  const options = {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  };
+  return date.toLocaleString("en-US", options);
+}
 
 export default function Chat() {
   const router = useRouter();
@@ -15,21 +28,31 @@ export default function Chat() {
   const [responses, setResponses] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [input, setInput] = useState("");
+  const [initialTimestamp, setInitialTimestamp] = useState(null);
+  const [showNextMessage, setShowNextMessage] = useState(false);
+  const messagesEndRef = useRef(null);
+
+
+  useEffect(() => {
+    if (currentQuestionIndex === 0 && !initialTimestamp) {
+      setInitialTimestamp(new Date());
+      setShowNextMessage(true);
+    }
+  }, [currentQuestionIndex, initialTimestamp]);
 
   const handleSendMessage = () => {
     if (input.trim()) {
-      // Add the user's response to the chat
       setResponses([
         ...responses,
         { question: questions[currentQuestionIndex], answer: input },
       ]);
       setInput("");
+      setShowNextMessage(false);
     }
   };
 
   useEffect(() => {
     if (responses.length > 0 && responses.length === questions.length) {
-      // All questions have been answered, save responses and redirect
       (async () => {
         await fetch("/api/save-responses", {
           method: "POST",
@@ -41,68 +64,80 @@ export default function Chat() {
         router.push("/payment");
       })();
     } else if (responses.length > 0) {
-      // Move to the next question after each answer
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      
+      setTimeout(() => {
+        
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setShowNextMessage(true);
+      }, 800);
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }
   }, [responses]);
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-800">
-      <div className="w-full max-w-sm p-6 bg-gray-900 text-white rounded-lg shadow-md">
-        <div className="overflow-y-auto h-96 mb-4">
-          {responses.map((res, idx) => (
-            <div key={idx} className="my-2">
-              <div className="text-sm text-gray-400">
-                {new Date().toLocaleTimeString()}
-              </div>
-              <div className="bg-blue-600 p-3 rounded-lg">{res.question}</div>
-              <div className="text-sm text-gray-400">
-                {new Date().toLocaleTimeString()}
-              </div>
-              <div className="bg-gray-700 p-3 rounded-lg mt-1">
-                {res.answer}
-              </div>
-            </div>
-          ))}
-          {currentQuestionIndex < questions.length && (
-            <div className="my-2">
-              <div className="text-sm text-gray-400">
-                {new Date().toLocaleTimeString()}
-              </div>
-              <div className="bg-blue-600 p-3 rounded-lg">
-                {questions[currentQuestionIndex]}
-              </div>
-            </div>
-          )}
+    <div>
+      {initialTimestamp && (
+        <div className="flex justify-center items-center text-sm text-gray-400 text-center mb-2">
+          {formatDate(initialTimestamp)}
         </div>
-        <div className="flex items-center">
-          <input
-            type="text"
-            className="flex-1 p-2 bg-gray-700 rounded-md focus:outline-none"
-            placeholder="Type a message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-          />
-          <button
-            onClick={handleSendMessage}
-            className="ml-2 bg-blue-500 p-2 rounded-full hover:bg-blue-600"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+      )}
+
+      <div className="w-full flex items-center px-4 py-3">
+        <div className="w-full max-w-sm p-6 text-black rounded-lg text-[14px]">
+          <div className="overflow-y-auto h-96 mb-4 no-scrollbar">
+            {responses.map((res, idx) => (
+              <div key={idx} className="my-3">
+                {/* Question on the left */}
+                <div className="flex justify-start">
+                  <div className="bg-[#EFEFEF] rounded-[20px] py-2 px-2.5 inline-block max-w-xs">
+                    {res.question}
+                  </div>
+                </div>
+                {/* Answer on the right */}
+                <div className="flex justify-end mt-2">
+                  <div className="bg-[#3797F0] rounded-[20px] py-2 px-2.5 inline-block max-w-xs text-white">
+                    {res.answer}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {currentQuestionIndex < questions.length && showNextMessage && (
+              <div className="my-2 animate-fadeinright right-0">
+                <div className="bg-[#EFEFEF] rounded-[20px] py-2 px-2.5 inline-block max-w-xs">
+                  {questions[currentQuestionIndex]}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center">
+            <input
+              type="text"
+              className="flex-1 p-2 bg-gray-700 rounded-md focus:outline-none"
+              placeholder="Type a message..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+            />
+            <button
+              onClick={handleSendMessage}
+              className="ml-2 bg-blue-500 p-2 rounded-full hover:bg-blue-600"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M5 12h14M5 12l6-6m-6 6l6 6"
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5 12h14M5 12l6-6m-6 6l6 6"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
